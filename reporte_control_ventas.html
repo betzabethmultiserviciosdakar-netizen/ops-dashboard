@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard de Ventas</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F5F6FA;--bg2:#FFFFFF;--bg3:#EEF0F6;--border:#DDE1ED;
+  --text:#1A1D2E;--muted:#6B7080;
+  --tienda:#1D4ED8;--crm:#059669;--ap:#6D28D9;--ml:#D97706;
+  --green:#059669;--red:#DC2626;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-size:14px;line-height:1.5;}
+.shell{max-width:1160px;margin:0 auto;padding:1.5rem 1.5rem 5rem;}
+
+/* Header */
+.hdr{display:flex;align-items:flex-start;justify-content:space-between;padding-bottom:1.25rem;border-bottom:2px solid var(--border);margin-bottom:1.75rem;gap:1rem;flex-wrap:wrap;}
+.hdr h1{font-size:20px;font-weight:700;letter-spacing:-.2px;}
+.hdr p{font-size:12px;color:var(--muted);margin-top:3px;}
+.hdr-r{display:flex;gap:6px;align-items:center;flex-wrap:wrap;}
+.pill{font-size:12px;padding:5px 12px;border:1.5px solid var(--border);border-radius:20px;background:var(--bg2);color:var(--muted);cursor:pointer;transition:all .15s;}
+.pill.on{background:var(--text);color:#fff;border-color:var(--text);}
+.updated{font-size:11px;color:var(--muted);}
+
+/* Loading */
+#loading{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;gap:14px;}
+.spinner{width:28px;height:28px;border:3px solid var(--border);border-top-color:var(--tienda);border-radius:50%;animation:spin .7s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+#loading p{color:var(--muted);font-size:13px;}
+#err{display:none;padding:3rem;text-align:center;color:var(--red);}
+
+/* Tabs */
+.tab-bar{display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:1.75rem;flex-wrap:wrap;}
+.tab{font-size:13px;font-weight:500;padding:8px 18px;border:none;background:none;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;white-space:nowrap;transition:color .15s;}
+.tab:hover{color:var(--text);}
+.tab.on{color:var(--text);font-weight:700;border-bottom-color:var(--text);}
+.tab-panel{display:none;}
+.tab-panel.on{display:block;}
+
+/* Metrics */
+.mrow{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:1.75rem;}
+.mc{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:.85rem 1rem;}
+.mc-l{font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:5px;}
+.mc-v{font-size:20px;font-weight:700;line-height:1.2;}
+.mc-s{font-size:11px;color:var(--muted);margin-top:3px;}
+
+/* Dep cards */
+.dep-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:1.75rem;}
+.dep-card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:.85rem 1rem;}
+.dep-tag{display:inline-block;font-size:10px;padding:2px 8px;border-radius:20px;font-weight:600;margin-bottom:6px;}
+.dt{background:#DBEAFE;color:#1D4ED8;}
+.dc{background:#D1FAE5;color:#065F46;}
+.da{background:#EDE9FE;color:#5B21B6;}
+.dm{background:#FEF3C7;color:#92400E;}
+.dep-v{font-size:17px;font-weight:700;margin-bottom:3px;}
+.dep-s{font-size:11px;color:var(--muted);}
+.dep-names{font-size:10px;color:var(--muted);margin-top:4px;}
+
+/* Section title */
+.sec{font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin:1.75rem 0 .75rem;}
+
+/* Charts */
+.chart-wrap{position:relative;width:100%;height:200px;margin-bottom:1.75rem;}
+.chart-leg{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:1rem;}
+.cl-item{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted);}
+.cl-dot{width:12px;height:3px;border-radius:2px;display:inline-block;}
+
+/* Hbar */
+.hbar-wrap{display:flex;flex-direction:column;gap:8px;margin-bottom:1.75rem;}
+.hbar-row{display:flex;align-items:center;gap:10px;}
+.hbar-name{font-size:12px;color:var(--muted);width:130px;text-align:right;flex-shrink:0;}
+.hbar-track{flex:1;background:var(--bg3);border-radius:3px;height:20px;position:relative;}
+.hbar-fill{height:100%;border-radius:3px;}
+.hbar-val{font-size:12px;color:var(--muted);min-width:60px;}
+
+/* Consolidado + semana filter */
+.week-filter{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:1rem;}
+.wf-btn{font-size:11px;padding:4px 10px;border:1.5px solid var(--border);border-radius:20px;background:var(--bg2);color:var(--muted);cursor:pointer;transition:all .15s;}
+.wf-btn.on{background:var(--text);color:#fff;border-color:var(--text);}
+
+/* Tables */
+.tw{overflow-x:auto;margin-bottom:1.75rem;}
+.tbl{width:100%;border-collapse:collapse;font-size:13px;}
+.tbl th{background:var(--bg3);color:var(--muted);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;padding:7px 10px;text-align:right;border-bottom:2px solid var(--border);white-space:nowrap;}
+.tbl th:first-child{text-align:left;}
+.tbl td{padding:7px 10px;border-bottom:1px solid var(--border);text-align:right;white-space:nowrap;}
+.tbl td:first-child{text-align:left;}
+.tbl tr:hover td{background:var(--bg3);}
+.tbl tr.wk td{background:var(--bg3);font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;padding:5px 10px;}
+.tbl tr.sub td{background:var(--bg3);font-weight:700;border-top:2px solid var(--border);}
+.tbl tr.grand td{background:var(--bg3);font-weight:700;border-top:2px solid var(--border);}
+.tbl tr.dhdr td{background:var(--bg3);font-size:11px;font-weight:600;color:var(--muted);padding:5px 10px;}
+.tbl tr.dtot td{font-weight:700;border-top:1px solid var(--border);background:#F8F9FC;}
+.zero{color:var(--border);}
+.badge-n{font-size:10px;background:#D1FAE5;color:#065F46;padding:2px 7px;border-radius:20px;font-weight:600;}
+
+@media(max-width:600px){
+  .mrow{grid-template-columns:repeat(2,1fr);}
+  .hdr{flex-direction:column;}
+}
+</style>
+</head>
+<body>
+<div class="shell">
+  <div class="hdr">
+    <div>
+      <h1>Dashboard de ventas</h1>
+      <p id="subtitulo">Cargando...</p>
+    </div>
+    <div class="hdr-r">
+      <div id="mes-pills"></div>
+      <div class="updated" id="upd"></div>
+    </div>
+  </div>
+  <div id="loading"><div class="spinner"></div><p>Cargando datos...</p></div>
+  <div id="err"></div>
+  <div id="app" style="display:none;"></div>
+</div>
+
+<script>
+const URL_DATA = 'https://script.google.com/macros/s/AKfycbyPFH2fuOjvnxnn6hLswtmI5sV_t20B5VVz8V_1saCil2lyIK1wAhHSIbqPluoozmyg/exec';
+
+const DEPTOS = ['Tienda','CRM Detal','AutoParts','ML'];
+const DEPT_COL = {Tienda:'#1D4ED8','CRM Detal':'#059669',AutoParts:'#6D28D9',ML:'#D97706'};
+const DEPT_TAG = {Tienda:'dt','CRM Detal':'dc',AutoParts:'da',ML:'dm'};
+const DEPT_LABEL = {Tienda:'Tienda','CRM Detal':'CRM Detal',AutoParts:'AutoParts',ML:'Mercado Libre'};
+const DEPT_NAMES = {
+  Tienda:'Kimex · Pellico · Karina',
+  'CRM Detal':'Luis · Joanna · Alejandro · CRM',
+  AutoParts:'Edgar · Daniel · CRM AP',
+  ML:'ML · ML Adicional'
+};
+const DEPT_SHADES = {
+  Tienda:['#1E3A8A','#1D4ED8','#2563EB','#3B82F6','#60A5FA'],
+  'CRM Detal':['#064E3B','#065F46','#059669','#10B981','#34D399'],
+  AutoParts:['#4C1D95','#6D28D9','#7C3AED','#8B5CF6'],
+  ML:['#78350F','#92400E','#B45309','#D97706']
+};
+const MESES_ES = {'01':'Enero','02':'Febrero','03':'Marzo','04':'Abril','05':'Mayo','06':'Junio','07':'Julio','08':'Agosto','09':'Septiembre','10':'Octubre','11':'Noviembre','12':'Diciembre'};
+const DIAS_ES = {'Mon':'Lun','Tue':'Mar','Wed':'Mié','Thu':'Jue','Fri':'Vie','Sat':'Sáb'};
+
+let D = null;
+let CHARTS = [];
+let MES_ACTIVO = '';
+let SEM_ACTIVA = 'todas';
+
+const fmt = v => '$' + parseFloat(v||0).toLocaleString('es-VE',{minimumFractionDigits:2,maximumFractionDigits:2});
+const fmtK = v => { const n=parseFloat(v||0); return n>=1e6?'$'+(n/1e6).toFixed(1)+'M':n>=1000?'$'+Math.round(n/1000)+'K':'$'+Math.round(n); };
+const mesLabel = m => { const[y,mo]=m.split('-'); return (MESES_ES[mo]||mo)+' '+y; };
+const dayLabel = f => { const dt=new Date(f+'T12:00:00'); return (DIAS_ES[dt.toLocaleDateString('en-US',{weekday:'short'}).slice(0,3)]||'?')+' '+dt.getDate(); };
+
+function getWeek(f) {
+  const dt = new Date(f+'T12:00:00');
+  const dow = dt.getDay(); if(dow===0) return null;
+  const y=dt.getFullYear(),mo=dt.getMonth(),d=dt.getDate();
+  const p=new Date(y,mo,1).getDay();
+  let ps; if(p===0)ps=7; else if(p===6)ps=1; else ps=1+(6-p);
+  if(d<=ps) return 1;
+  return 2+Math.floor((d-ps-2)/7);
+}
+function weekRange(sem,y,mo) {
+  const m=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  const dias=new Date(y,mo+1,0).getDate();
+  let mn=99,mx=0;
+  for(let d=1;d<=dias;d++){
+    const fs=`${y}-${String(mo+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    if(getWeek(fs)===sem){mn=Math.min(mn,d);mx=Math.max(mx,d);}
+  }
+  const f0=new Date(y,mo,mn),f1=new Date(y,mo,mx);
+  return`${f0.getDate()} ${m[f0.getMonth()]} — ${f1.getDate()} ${m[f1.getMonth()]}`;
+}
+
+function destroyCharts(){ CHARTS.forEach(c=>{try{c.destroy();}catch(e){}}); CHARTS=[]; }
+
+// ── Chart builders ────────────────────────────────────────
+function buildLine(id, byDay, colors) {
+  const el = document.getElementById(id); if(!el) return;
+  const fechas = [...new Set(DEPTOS.flatMap(d=>Object.keys(byDay[d]||{})))].sort();
+  const datasets = DEPTOS.filter(d=>Object.keys(byDay[d]||{}).length).map(d=>({
+    label: DEPT_LABEL[d],
+    data: fechas.map(f=>(byDay[d]||{})[f]||0),
+    borderColor: DEPT_COL[d],
+    backgroundColor: DEPT_COL[d]+'12',
+    borderWidth: 2,
+    pointRadius: 3,
+    pointHoverRadius: 6,
+    fill: false,
+    tension: 0.35,
+  }));
+  const c = new Chart(el,{type:'line',data:{labels:fechas.map(dayLabel),datasets},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{mode:'index',intersect:false,callbacks:{label:ctx=>ctx.dataset.label+': '+fmt(ctx.parsed.y)}}},
+      scales:{x:{grid:{display:false},ticks:{color:'#6B7080',font:{size:11},maxRotation:45}},
+              y:{grid:{color:'rgba(0,0,0,0.05)'},ticks:{color:'#6B7080',font:{size:11},callback:v=>fmtK(v)}}}}});
+  CHARTS.push(c);
+}
+
+function buildLineSingle(id, byDay, color) {
+  const el = document.getElementById(id); if(!el) return;
+  const fechas = Object.keys(byDay).sort();
+  const vals = fechas.map(f=>byDay[f]);
+  const avg = vals.reduce((a,b)=>a+b,0)/vals.length;
+  const c = new Chart(el,{type:'line',data:{labels:fechas.map(dayLabel),datasets:[
+    {label:'Ventas',data:vals,borderColor:color,backgroundColor:color+'15',borderWidth:2.5,pointRadius:3,pointHoverRadius:6,fill:true,tension:0.35},
+    {label:'Promedio',data:Array(vals.length).fill(Math.round(avg)),borderColor:'rgba(107,112,128,0.4)',borderWidth:1.5,borderDash:[5,4],pointRadius:0,fill:false}
+  ]},options:{responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>ctx.dataset.label+': '+fmt(ctx.parsed.y)}}},
+    scales:{x:{grid:{display:false},ticks:{color:'#6B7080',font:{size:11},maxRotation:45}},
+            y:{grid:{color:'rgba(0,0,0,0.05)'},ticks:{color:'#6B7080',font:{size:11},callback:v=>fmtK(v)}}}}});
+  CHARTS.push(c);
+}
+
+function buildHBar(id, items, shades) {
+  const el = document.getElementById(id); if(!el) return;
+  const h = Math.max(160,items.length*40+60);
+  el.parentElement.style.height = h+'px';
+  const total = items.reduce((s,x)=>s+x[1],0);
+  const c = new Chart(el,{type:'bar',
+    data:{labels:items.map(x=>x[0]),datasets:[{data:items.map(x=>x[1]),backgroundColor:shades,borderRadius:3,barPercentage:.7}]},
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      layout:{padding:{right:180}},
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>fmt(ctx.parsed.x)}}},
+      scales:{x:{grid:{color:'rgba(0,0,0,0.05)'},ticks:{color:'#6B7080',font:{size:11},callback:v=>fmtK(v)}},
+              y:{grid:{display:false},ticks:{color:'#1A1D2E',font:{size:12}}}},
+      animation:{onComplete:function(){
+        const{ctx,data}=this;const meta=this.getDatasetMeta(0);
+        ctx.save();ctx.font='500 11px Inter,sans-serif';ctx.fillStyle='#6B7080';ctx.textAlign='left';ctx.textBaseline='middle';
+        meta.data.forEach((bar,i)=>{
+          const v=data.datasets[0].data[i];
+          const pct=total>0?(v/total*100).toFixed(1):'0';
+          ctx.fillText(fmt(v)+'   '+pct+'%',bar.x+8,bar.y);
+        });
+        ctx.restore();
+      }}}});
+  CHARTS.push(c);
+}
+
+// ── Data helpers ──────────────────────────────────────────
+function deptTotal(mes, dept) {
+  const dias = (D.porMes[mes]||{})[dept]||{};
+  return Object.values(dias).reduce((s,vends)=>s+Object.values(vends).reduce((a,b)=>a+b,0),0);
+}
+function deptByDay(mes, dept) {
+  const dias = (D.porMes[mes]||{})[dept]||{};
+  const out = {};
+  Object.keys(dias).forEach(f=>{ out[f]=Object.values(dias[f]).reduce((a,b)=>a+b,0); });
+  return out;
+}
+function allDays(mes) {
+  const days = new Set();
+  DEPTOS.forEach(d=>Object.keys((D.porMes[mes]||{})[d]||{}).forEach(f=>days.add(f)));
+  return [...days].sort();
+}
+function weekDays(mes, sem) {
+  if(sem==='todas') return allDays(mes);
+  return allDays(mes).filter(f=>getWeek(f)===sem);
+}
+function weeksInMes(mes) {
+  const sems = new Set();
+  allDays(mes).forEach(f=>{ const s=getWeek(f); if(s) sems.add(s); });
+  return [...sems].sort((a,b)=>a-b);
+}
+
+// ── Render ────────────────────────────────────────────────
+function render(mes) {
+  destroyCharts();
+  MES_ACTIVO = mes;
+  SEM_ACTIVA = 'todas';
+
+  const [y,mo] = mes.split('-').map(Number);
+  const sems = weeksInMes(mes);
+  const dias = allDays(mes);
+  const totalEmpresa = DEPTOS.reduce((s,d)=>s+deptTotal(mes,d),0);
+  const totalClientes = Object.values(D.clientes[mes]||{}).reduce((a,b)=>a+b,0);
+  const totalNuevos   = Object.values(D.nuevos[mes]||{}).reduce((a,b)=>a+b,0);
+
+  document.getElementById('subtitulo').textContent = 'Multiservicios Dakar C.A. — '+mesLabel(mes);
+  document.getElementById('upd').textContent = 'Actualizado: '+new Date().toLocaleDateString('es-VE',{day:'2-digit',month:'2-digit',year:'numeric'});
+
+  // Build byDay for all depts (for line chart)
+  const byDayAll = {};
+  DEPTOS.forEach(d=>{ byDayAll[d]=deptByDay(mes,d); });
+
+  let html = `
+  <div class="tab-bar">
+    <button class="tab on" onclick="switchTab('resumen',this)">Resumen</button>
+    ${DEPTOS.map(d=>`<button class="tab" onclick="switchTab('${d}',this)">${DEPT_LABEL[d]}</button>`).join('')}
+  </div>`;
+
+  // ── RESUMEN ──
+  html += `<div class="tab-panel on" id="panel-resumen">
+    <div class="mrow">
+      <div class="mc"><div class="mc-l">Total facturado</div><div class="mc-v">${fmt(totalEmpresa)}</div><div class="mc-s">${mesLabel(mes)}</div></div>
+      <div class="mc"><div class="mc-l">Clientes atendidos</div><div class="mc-v">${totalClientes}</div><div class="mc-s">únicos en el mes</div></div>
+      <div class="mc"><div class="mc-l">Clientes nuevos</div><div class="mc-v" style="color:var(--green)">${totalNuevos}</div><div class="mc-s">${totalClientes>0?Math.round(totalNuevos/totalClientes*100):0}% del total</div></div>
+      <div class="mc"><div class="mc-l">Días activos</div><div class="mc-v">${dias.length}</div><div class="mc-s">promedio ${fmt(totalEmpresa/(dias.length||1))}/día</div></div>
+    </div>
+
+    <div class="sec">Por departamento</div>
+    <div class="dep-row">
+      ${DEPTOS.map(d=>{
+        const t=deptTotal(mes,d);
+        const pct=totalEmpresa>0?(t/totalEmpresa*100).toFixed(1):0;
+        return`<div class="dep-card">
+          <div class="dep-tag ${DEPT_TAG[d]}">${DEPT_LABEL[d]}</div>
+          <div class="dep-v">${fmt(t)}</div>
+          <div class="dep-s">${pct}% del total</div>
+          <div class="dep-names">${DEPT_NAMES[d]}</div>
+        </div>`;
+      }).join('')}
+    </div>
+
+    <div class="sec">Evolución diaria por departamento</div>
+    <div class="chart-leg">
+      ${DEPTOS.map(d=>`<div class="cl-item"><span class="cl-dot" style="background:${DEPT_COL[d]};height:3px;"></span>${DEPT_LABEL[d]}</div>`).join('')}
+    </div>
+    <div class="chart-wrap"><canvas id="line_resumen"></canvas></div>
+
+    <div class="sec">
+      Consolidado semanal
+      <span style="float:right;display:flex;gap:6px;" id="week-filter-resumen"></span>
+    </div>
+    <div class="tw" id="cons-table"></div>
+  </div>`;
+
+  // ── PESTAÑAS POR DEPTO ──
+  DEPTOS.forEach((dept,di)=>{
+    const t = deptTotal(mes,dept);
+    const byDay = deptByDay(mes,dept);
+    const diasDept = Object.keys(byDay).sort();
+    const vends = {};
+    Object.values((D.porMes[mes]||{})[dept]||{}).forEach(dv=>
+      Object.entries(dv).forEach(([v,n])=>{ vends[v]=(vends[v]||0)+n; })
+    );
+    const vendList = Object.entries(vends).sort((a,b)=>b[1]-a[1]);
+
+    html += `<div class="tab-panel" id="panel-${dept}">
+      <div class="mrow" style="grid-template-columns:repeat(auto-fit,minmax(130px,1fr));">
+        <div class="mc"><div class="mc-l">Total</div><div class="mc-v" style="color:${DEPT_COL[dept]}">${fmt(t)}</div></div>
+        <div class="mc"><div class="mc-l">% del total</div><div class="mc-v">${totalEmpresa>0?(t/totalEmpresa*100).toFixed(1):0}%</div></div>
+        <div class="mc"><div class="mc-l">Días activos</div><div class="mc-v">${diasDept.length}</div></div>
+        <div class="mc"><div class="mc-l">Promedio diario</div><div class="mc-v">${fmt(t/(diasDept.length||1))}</div></div>
+      </div>
+
+      <div class="sec">Evolución diaria</div>
+      <div class="chart-wrap"><canvas id="line_${dept}"></canvas></div>
+
+      <div class="sec">Por vendedor — período completo</div>
+      <div style="position:relative;width:100%;"><canvas id="hbar_${dept}"></canvas></div>
+
+      <div class="sec">Desglose diario por vendedor</div>
+      <div class="tw">${buildDespTable(mes, dept)}</div>
+    </div>`;
+  });
+
+  document.getElementById('app').innerHTML = html;
+
+  // Build week filter buttons for resumen
+  const wfEl = document.getElementById('week-filter-resumen');
+  if(wfEl) {
+    let wfHtml = `<button class="wf-btn on" onclick="filterWeek('todas',this)">Todas</button>`;
+    sems.forEach(s=>{
+      wfHtml += `<button class="wf-btn" onclick="filterWeek(${s},this)">Sem ${s}</button>`;
+    });
+    wfEl.innerHTML = wfHtml;
+  }
+
+  // Render consolidado
+  renderConsolidado(mes,'todas');
+
+  requestAnimationFrame(()=>{
+    buildLine('line_resumen', byDayAll, null);
+    DEPTOS.forEach(dept=>{
+      const byDay = deptByDay(mes,dept);
+      if(Object.keys(byDay).length) buildLineSingle('line_'+dept, byDay, DEPT_COL[dept]);
+      const vends = {};
+      Object.values((D.porMes[mes]||{})[dept]||{}).forEach(dv=>
+        Object.entries(dv).forEach(([v,n])=>{ vends[v]=(vends[v]||0)+n; })
+      );
+      const vendList = Object.entries(vends).sort((a,b)=>b[1]-a[1]);
+      if(vendList.length) buildHBar('hbar_'+dept, vendList, DEPT_SHADES[dept]);
+    });
+  });
+}
+
+function buildDespTable(mes, dept) {
+  const diasData = (D.porMes[mes]||{})[dept]||{};
+  const fechas = Object.keys(diasData).sort();
+  if(!fechas.length) return '<p style="color:var(--muted);font-size:13px;padding:1rem 0;">Sin datos para este período.</p>';
+
+  let html = `<table class="tbl"><thead><tr>
+    <th>Fecha</th><th>Vendedor</th><th>Monto ($)</th><th>Clientes</th><th>Nuevos</th>
+  </tr></thead><tbody>`;
+
+  fechas.forEach(f=>{
+    const vends = diasData[f]||{};
+    const vendList = Object.entries(vends).sort((a,b)=>b[1]-a[1]);
+    const dayTotal = vendList.reduce((s,x)=>s+x[1],0);
+    const dayCli = (D.clientes[mes]||{})[f]||0;
+    const dayNuevos = (D.nuevos[mes]||{})[f]||0;
+
+    html += `<tr class="dhdr"><td colspan="5">${dayLabel(f)} ${f.slice(8)} — <strong>${fmt(dayTotal)}</strong> total día</td></tr>`;
+    vendList.forEach(([v,n])=>{
+      html += `<tr><td class="muted">${dayLabel(f)}</td><td>${v}</td><td>${fmt(n)}</td>
+        <td class="muted" style="text-align:center;">—</td><td class="muted" style="text-align:center;">—</td></tr>`;
+    });
+    html += `<tr class="dtot"><td></td><td>Total día</td><td>${fmt(dayTotal)}</td>
+      <td style="text-align:center;">${dayCli}</td>
+      <td style="text-align:center;">${dayNuevos>0?`<span class="badge-n">${dayNuevos}</span>`:'0'}</td></tr>`;
+  });
+
+  // Totales del período
+  const totalDept = fechas.reduce((s,f)=>s+Object.values(diasData[f]||{}).reduce((a,b)=>a+b,0),0);
+  const totalCli = Object.entries(D.clientes[mes]||{}).filter(([f])=>fechas.includes(f)).reduce((s,[,v])=>s+v,0);
+  const totalNuev = Object.entries(D.nuevos[mes]||{}).filter(([f])=>fechas.includes(f)).reduce((s,[,v])=>s+v,0);
+
+  html += `<tr class="grand"><td colspan="2">Total período</td><td>${fmt(totalDept)}</td>
+    <td style="text-align:center;">${totalCli}</td>
+    <td style="text-align:center;">${totalNuev>0?`<span class="badge-n">${totalNuev}</span>`:'0'}</td></tr>`;
+
+  html += '</tbody></table>';
+  return html;
+}
+
+function renderConsolidado(mes, sem) {
+  SEM_ACTIVA = sem;
+  const [y,mo] = mes.split('-').map(Number);
+  const sems = weeksInMes(mes);
+  const diasFilt = sem==='todas' ? allDays(mes) : allDays(mes).filter(f=>getWeek(f)===sem);
+
+  let html = `<table class="tbl"><thead><tr>
+    <th>Fecha</th>
+    ${DEPTOS.map(d=>`<th><span class="dep-tag ${DEPT_TAG[d]}" style="font-size:10px;">${DEPT_LABEL[d]}</span></th>`).join('')}
+    <th>Total día</th><th>Clientes</th><th>Nuevos</th>
+  </tr></thead><tbody>`;
+
+  const semsToShow = sem==='todas' ? sems : [sem];
+
+  semsToShow.forEach(s=>{
+    const semDias = diasFilt.filter(f=>getWeek(f)===s);
+    if(!semDias.length) return;
+    const rango = weekRange(s, y, mo-1);
+
+    html += `<tr class="wk"><td colspan="${DEPTOS.length+3}">Semana ${s} — ${rango}</td></tr>`;
+
+    const semTots = {};
+    DEPTOS.forEach(d=>semTots[d]=0);
+    let semTotalAll=0, semCli=0, semNuev=0;
+
+    semDias.forEach(f=>{
+      const dTots = {};
+      DEPTOS.forEach(d=>{ dTots[d]=Object.values((D.porMes[mes]||{})[d]?.[f]||{}).reduce((a,b)=>a+b,0); });
+      const dayTotal = DEPTOS.reduce((s,d)=>s+dTots[d],0);
+      const dayCli = (D.clientes[mes]||{})[f]||0;
+      const dayNuev = (D.nuevos[mes]||{})[f]||0;
+      DEPTOS.forEach(d=>semTots[d]+=dTots[d]);
+      semTotalAll+=dayTotal; semCli+=dayCli; semNuev+=dayNuev;
+
+      html += `<tr><td>${dayLabel(f)} ${f.slice(8)}</td>
+        ${DEPTOS.map(d=>dTots[d]>0?`<td>${fmt(dTots[d])}</td>`:`<td class="zero">—</td>`).join('')}
+        <td style="font-weight:600;">${fmt(dayTotal)}</td>
+        <td style="text-align:center;">${dayCli||'—'}</td>
+        <td style="text-align:center;">${dayNuev>0?`<span class="badge-n">${dayNuev}</span>`:(dayCli?'0':'—')}</td>
+      </tr>`;
+    });
+
+    html += `<tr class="sub"><td>Subtotal Sem ${s}</td>
+      ${DEPTOS.map(d=>`<td>${fmt(semTots[d])}</td>`).join('')}
+      <td>${fmt(semTotalAll)}</td><td style="text-align:center;">${semCli}</td>
+      <td style="text-align:center;">${semNuev>0?`<span class="badge-n">${semNuev}</span>`:'0'}</td></tr>`;
+  });
+
+  if(sem==='todas') {
+    const grandTots = {};
+    DEPTOS.forEach(d=>grandTots[d]=deptTotal(mes,d));
+    const grandAll = DEPTOS.reduce((s,d)=>s+grandTots[d],0);
+    const grandCli = Object.values(D.clientes[mes]||{}).reduce((a,b)=>a+b,0);
+    const grandNuev = Object.values(D.nuevos[mes]||{}).reduce((a,b)=>a+b,0);
+    html += `<tr class="grand"><td>Total ${mesLabel(mes)}</td>
+      ${DEPTOS.map(d=>`<td>${fmt(grandTots[d])}</td>`).join('')}
+      <td>${fmt(grandAll)}</td><td style="text-align:center;">${grandCli}</td>
+      <td style="text-align:center;">${grandNuev>0?`<span class="badge-n">${grandNuev}</span>`:'0'}</td></tr>`;
+  }
+
+  html += '</tbody></table>';
+  const el = document.getElementById('cons-table');
+  if(el) el.innerHTML = html;
+}
+
+function filterWeek(sem, btn) {
+  document.querySelectorAll('.wf-btn').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  renderConsolidado(MES_ACTIVO, sem);
+}
+
+function switchTab(id, btn) {
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('on'));
+  btn.classList.add('on');
+  document.getElementById('panel-'+id).classList.add('on');
+}
+
+function cambiarMes(mes) {
+  document.querySelectorAll('.pill').forEach(p=>p.classList.remove('on'));
+  event.target.classList.add('on');
+  render(mes);
+}
+
+async function boot() {
+  try {
+    const resp = await fetch(URL_DATA);
+    if(!resp.ok) throw new Error('HTTP '+resp.status);
+    const data = await resp.json();
+    if(data.error) throw new Error(data.error);
+    D = data;
+    const meses = D.meses||[];
+    if(!meses.length) throw new Error('Sin datos');
+
+    // Pills de meses
+    document.getElementById('mes-pills').innerHTML = meses.map((m,i)=>
+      `<div class="pill${i===0?' on':''}" onclick="cambiarMes('${m}')">${mesLabel(m)}</div>`
+    ).join('');
+
+    document.getElementById('loading').style.display='none';
+    document.getElementById('app').style.display='block';
+    render(meses[0]);
+  } catch(e) {
+    document.getElementById('loading').style.display='none';
+    const el = document.getElementById('err');
+    el.style.display='block';
+    el.textContent = 'Error: '+e.message;
+  }
+}
+boot();
+</script>
+</body>
+</html>
