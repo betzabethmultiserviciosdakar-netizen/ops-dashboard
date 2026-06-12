@@ -289,39 +289,75 @@ function renderCons(sem){
 }
 
 // ── Resumen diario ────────────────────────────────────────
-function buildResumenDiario(){
-  const allDays=allLabDays(MES).filter(f=>DLIST.some(d=>deptDayTotal(MES,d,f)>0));
-  // Mostrar último día con datos
+let DIA_ACTIVO = '';
+
+function buildResumenDiario(f){
+  const allDays=allLabDays(MES).filter(fd=>DLIST.some(d=>deptDayTotal(MES,d,fd)>0));
   if(!allDays.length)return'<p style="color:var(--muted);padding:1rem 0;">Sin datos.</p>';
-  const f=allDays[allDays.length-1];
-  const rows=[];
+  if(!f||!allDays.includes(f)) f=allDays[allDays.length-1];
+  DIA_ACTIVO=f;
+
+  // Agrupar por depto → vendedor
+  const byDept={};
   DLIST.forEach(dept=>{
     const vendDia=(D.porMes[MES]||{})[dept]?.[f]||{};
-    Object.entries(vendDia).sort((a,b)=>b[1]-a[1]).forEach(([vend,neto])=>{
-      if(neto>0) rows.push({dept,vend,neto,
+    const rows=Object.entries(vendDia)
+      .filter(([,neto])=>neto>0)
+      .sort((a,b)=>b[1]-a[1])
+      .map(([vend,neto])=>({vend,neto,
         cli:vendCli(MES,dept,f,vend),
-        nuev:vendNuev(MES,dept,f,vend)});
-    });
+        nuev:vendNuev(MES,dept,f,vend)}));
+    if(rows.length) byDept[dept]=rows;
   });
-  rows.sort((a,b)=>b.neto-a.neto);
-  const totNeto=rows.reduce((s,r)=>s+r.neto,0);
-  const totCli=rows.reduce((s,r)=>s+r.cli,0);
-  const totNuev=rows.reduce((s,r)=>s+r.nuev,0);
 
-  let html=`<table class="tbl"><thead><tr>
-    <th class="l">Vendedor</th><th class="l">Depto</th>
-    <th>Monto ($)</th><th>Clientes</th><th>Nuevos</th>
+  const totNeto=DLIST.reduce((s,d)=>s+deptDayTotal(MES,d,f),0);
+  const totCli=DLIST.reduce((s,d)=>s+deptDayCli(MES,d,f),0);
+  const totNuev=DLIST.reduce((s,d)=>s+deptDayNuev(MES,d,f),0);
+
+  // Selector de días
+  let selector=`<div class="wf" style="margin-bottom:1rem;">`;
+  allDays.forEach(fd=>{
+    selector+=`<button class="wf-btn${fd===f?' on':''}" onclick="cambiarDia('${fd}',this)">${dlbl(fd)}</button>`;
+  });
+  selector+=`</div>`;
+
+  let tbl=`<table class="tbl"><thead><tr>
+    <th class="l" style="width:120px;">Depto</th>
+    <th class="l">Vendedor</th>
+    <th style="text-align:center;">Monto ($)</th>
+    <th style="text-align:center;">Clientes atendidos</th>
+    <th style="text-align:center;">Clientes nuevos</th>
   </tr></thead><tbody>
   <tr class="dhdr"><td colspan="5">${dlbl(f)} ${f} — <strong>${fmt(totNeto)}</strong> total empresa</td></tr>`;
-  rows.forEach(r=>{
-    html+=`<tr><td>${r.vend}</td><td><span class="dep-tag ${DTAG[r.dept]}" style="font-size:10px;">${DLBL[r.dept]}</span></td>
-      <td>${fmt(r.neto)}</td><td>${r.cli||'<span class="zero">—</span>'}</td>
-      <td>${r.nuev>0?`<span class="badge-n">${r.nuev}</span>`:r.cli?'0':'<span class="zero">—</span>'}</td></tr>`;
+
+  DLIST.forEach(dept=>{
+    if(!byDept[dept])return;
+    byDept[dept].forEach((r,i)=>{
+      tbl+=`<tr>
+        <td>${i===0?`<span class="dep-tag ${DTAG[dept]}" style="font-size:11px;">${DLBL[dept]}</span>`:''}</td>
+        <td>${r.vend}</td>
+        <td style="text-align:center;">${fmt(r.neto)}</td>
+        <td style="text-align:center;">${r.cli||'<span class="zero">—</span>'}</td>
+        <td style="text-align:center;">${r.nuev>0?`<span class="badge-n">${r.nuev}</span>`:r.cli?'0':'<span class="zero">—</span>'}</td>
+      </tr>`;
+    });
   });
-  html+=`<tr class="dtot"><td colspan="2">Total día</td><td>${fmt(totNeto)}</td>
-    <td>${totCli}</td><td>${totNuev>0?`<span class="badge-n">${totNuev}</span>`:'0'}</td></tr>
-  </tbody></table>`;
-  return html;
+
+  tbl+=`<tr class="dtot">
+    <td colspan="2" style="text-align:left;">Total día</td>
+    <td style="text-align:center;">${fmt(totNeto)}</td>
+    <td style="text-align:center;">${totCli}</td>
+    <td style="text-align:center;">${totNuev>0?`<span class="badge-n">${totNuev}</span>`:'0'}</td>
+  </tr></tbody></table>`;
+
+  return selector+tbl;
+}
+
+function cambiarDia(f,btn){
+  document.querySelectorAll('.wf-btn').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  const el=document.getElementById('resumen-dia-content');
+  if(el) el.innerHTML=buildResumenDiario(f);
 }
 
 // ── Vista depto ───────────────────────────────────────────
@@ -478,28 +514,14 @@ function render(mes){
       ${DLIST.map(d=>`<div class="li"><span class="ld" style="background:${DCOL[d]};"></span>${DLBL[d]}</div>`).join('')}
     </div>
 
-    <div class="sec">Tendencia — clientes nuevos captados</div>
-    <div class="trend-row">
-      <div class="trend-card">
-        <div class="trend-title">Nuevos por mes</div>
-        <div class="chart-wrap-sm"><canvas id="bar_tendencia"></canvas></div>
-      </div>
-      <div class="trend-card">
-        <div class="trend-title">Nuevos por departamento — ${mlbl(mes)}</div>
-        <div style="display:flex;flex-direction:column;gap:8px;margin-top:4px;" id="nuev-depto">
-          ${DLIST.map(d=>{
-            const dn=Object.values((D.nuevos[mes]||{})[d]||{}).reduce((a,o)=>a+Object.values(o).reduce((x,y)=>x+y,0),0);
-            const pct=totalNuev>0?Math.round(dn/totalNuev*100):0;
-            return`<div style="display:flex;align-items:center;gap:8px;font-size:13px;">
-              <span style="flex:1;color:var(--muted);">${DLBL[d]}</span>
-              <div style="width:100px;height:8px;background:var(--bg2);border-radius:4px;overflow:hidden;">
-                <div style="width:${pct}%;height:100%;background:${DCOL[d]};border-radius:4px;"></div>
-              </div>
-              <span style="font-weight:500;min-width:25px;">${dn}</span>
-            </div>`;
-          }).join('')}
-        </div>
-      </div>
+    <div class="sec">Resumen del día</div>
+    <div class="tw" id="resumen-dia-content"></div>
+
+    <div class="sec">Tendencia — nuevos vs habituales por día</div>
+    <div class="chart-wrap"><canvas id="line_tendencia"></canvas></div>
+    <div class="leg" style="margin-bottom:1.25rem;">
+      <div class="li"><span class="ld" style="background:#059669;"></span>Clientes nuevos</div>
+      <div class="li"><span class="ld" style="background:#6B7080;border-style:dashed;"></span>Habituales</div>
     </div>
 
     <div class="sec" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
@@ -510,9 +532,6 @@ function render(mes){
       </div>
     </div>
     <div class="tw" id="cons-table"></div>
-
-    <div class="sec">Resumen del día</div>
-    <div class="tw">${buildResumenDiario()}</div>
   </div>`;
 
   // PESTAÑAS POR DEPTO
@@ -524,20 +543,32 @@ function render(mes){
 
   document.getElementById('app').innerHTML=html;
   renderCons('todas');
+  // Resumen del dia
+  const rdEl=document.getElementById('resumen-dia-content');
+  if(rdEl) rdEl.innerHTML=buildResumenDiario('');
 
   requestAnimationFrame(()=>{
     // Resumen line
     buildLine('line_resumen',lineDatasets,allDays.map(dlbl));
 
-    // Tendencia barras
-    const tendEl=document.getElementById('bar_tendencia');
+    // Tendencia nuevos vs habituales por día
+    const tendEl=document.getElementById('line_tendencia');
     if(tendEl){
-      const c=new Chart(tendEl,{type:'bar',
-        data:{labels:tendLabels,datasets:[{data:tendNuev,backgroundColor:tendLabels.map((_,i)=>i===tendLabels.length-1?'#059669':'#D1FAE5'),borderRadius:4}]},
+      const ad=allLabDays(mes);
+      const nuevosPorDia=ad.map(f=>DLIST.reduce((s,d)=>s+deptDayNuev(mes,d,f),0));
+      const totCliPorDia=ad.map(f=>DLIST.reduce((s,d)=>s+deptDayCli(mes,d,f),0));
+      const habPorDia=totCliPorDia.map((t,i)=>Math.max(0,t-nuevosPorDia[i]));
+      const c=new Chart(tendEl,{type:'line',
+        data:{labels:ad.map(dlbl),datasets:[
+          {label:'Clientes nuevos',data:nuevosPorDia,borderColor:'#059669',backgroundColor:'#05996915',
+           borderWidth:2.5,pointRadius:4,pointHoverRadius:7,fill:true,tension:.35},
+          {label:'Habituales',data:habPorDia,borderColor:'rgba(107,112,128,0.5)',backgroundColor:'transparent',
+           borderWidth:2,borderDash:[5,4],pointRadius:3,pointHoverRadius:6,fill:false,tension:.35},
+        ]},
         options:{responsive:true,maintainAspectRatio:false,
-          plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>'Nuevos: '+ctx.parsed.y}}},
-          scales:{x:{grid:{display:false},ticks:{color:'#6B7080',font:{size:12}}},
-                  y:{grid:{color:'rgba(0,0,0,0.05)'},ticks:{color:'#6B7080',font:{size:12}}}}}});
+          plugins:{legend:{display:false},tooltip:{mode:'index',intersect:false,callbacks:{label:ctx=>ctx.dataset.label+': '+ctx.parsed.y}}},
+          scales:{x:{grid:{display:false},ticks:{color:'#6B7080',font:{size:12},maxRotation:45}},
+                  y:{grid:{color:'rgba(0,0,0,0.05)'},ticks:{color:'#6B7080',font:{size:12},stepSize:1}}}}});
       CHARTS.push(c);
     }
 
